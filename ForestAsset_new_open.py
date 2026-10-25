@@ -522,7 +522,7 @@ def main():
         st.write("자원, 관리주체, 키워드, 유형 간의 의미론적 관계를 탐색합니다. (마우스 휠로 확대/축소 및 드래그 가능)")
         
         # ★ 새로운 TTL 파일명으로 변경
-        ttl_file_path = "forest_culture_new_updated.ttl"
+        ttl_file_path = "forest_culture_dense_graph.ttl"
         g = rdflib.Graph()
         
         try:
