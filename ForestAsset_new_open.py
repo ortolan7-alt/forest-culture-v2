@@ -174,20 +174,64 @@ def main():
     st.markdown("<p>데이터 기반 산림문화 갤러리 및 공간 검색 플랫폼</p>", unsafe_allow_html=True)
     st.write("") 
 
+    # ==========================================
+    # ★ [UPDATE] 유튜브 다중 썸네일 선택 및 재생 로직
+    # ==========================================
+    # 1. 재생할 유튜브 영상 목록 정의 (id에는 유튜브 주소 v= 뒤의 값을 넣습니다)
+    video_list = [
+        {"id": "kx3zWy-C9a4", "title": "담양 메타세쿼이아 가로수길", "caption": "국가산림문화자산 지정번호 : 2015-0001"},
+        {"id": "P3b2oWjX_q4", "title": "영양 수비면 본신리 금강소나무숲", "caption": "국가산림문화자산"}, # 예시 ID 1
+        {"id": "tM3r_y2i5uU", "title": "장성 축령산 편백숲", "caption": "국가산림문화자산"}         # 예시 ID 2
+    ]
+
+    # 2. 현재 선택된 영상 인덱스를 세션 스테이트에 저장
+    if 'selected_video_idx' not in st.session_state:
+        st.session_state.selected_video_idx = 0
+
+    selected_video = video_list[st.session_state.selected_video_idx]
+
+    # 3. 메인 비디오 플레이어 출력
     col_empty1, col_video, col_empty2 = st.columns([1, 6, 1])
     with col_video:
-        video_html = """
+        video_html = f"""
         <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid rgba(128,128,128,0.2); box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
-            <iframe src="https://www.youtube.com/embed/kx3zWy-C9a4?autoplay=1&mute=1&loop=1&playlist=kx3zWy-C9a4&controls=0&showinfo=0&rel=0"
+            <iframe src="https://www.youtube.com/embed/{selected_video['id']}?autoplay=1&mute=1&loop=1&playlist={selected_video['id']}&controls=0&showinfo=0&rel=0"
                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
             </iframe>
         </div>
         """
         st.markdown(video_html, unsafe_allow_html=True)
-        st.caption("▲ 담양 메타세쿼이아 가로수길 (국가산림문화자산 지정번호 : 2015-0001)")
+        st.caption(f"▲ {selected_video['title']} ({selected_video['caption']})")
     
     st.write("")
+    
+    # 4. 썸네일 갤러리 및 선택 버튼 출력
+    st.markdown("<h4 style='font-size:1.1rem;'>🎬 다른 산림문화 영상 탐색</h4>", unsafe_allow_html=True)
+    thumb_cols = st.columns(len(video_list))
+    
+    for idx, vid in enumerate(video_list):
+        with thumb_cols[idx]:
+            # 유튜브 썸네일 이미지 URL 공식 사용
+            thumb_url = f"https://img.youtube.com/vi/{vid['id']}/mqdefault.jpg"
+            
+            # 선택된 영상은 테두리를 초록색으로 강조
+            is_selected = (st.session_state.selected_video_idx == idx)
+            border_style = "border: 3px solid #2ea043;" if is_selected else "border: 1px solid rgba(128,128,128,0.3);"
+            
+            st.markdown(f"""
+                <div style="text-align: center; margin-bottom: 8px;">
+                    <img src="{thumb_url}" style="width: 100%; border-radius: 8px; {border_style} box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # 클릭 시 세션 상태 업데이트 및 새로고침
+            if st.button(f"▶ {vid['title']}", key=f"btn_vid_{idx}", use_container_width=True):
+                st.session_state.selected_video_idx = idx
+                st.rerun()
+
+    st.divider()
+    # ==========================================
 
     # 파일명을 새 정리된 CSV로 교체
     CSV_FILE = '261023_산림청_국가산림문화자산_게시판_정리.csv'
