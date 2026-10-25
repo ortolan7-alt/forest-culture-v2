@@ -8,10 +8,8 @@ from streamlit_folium import st_folium
 import streamlit.components.v1 as components
 import altair as alt
 import tempfile
-# ====== [NEW] GraphDB 시각화용 라이브러리 ======
 import rdflib
 from pyvis.network import Network
-# ============================================
 
 # 1. 페이지 설정 및 다크모드 대응 CSS 테마
 st.set_page_config(page_title="산림문화자원 아카이브 시범 구축", page_icon="🌲", layout="wide")
@@ -42,29 +40,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# ★ [NEW] 자산 ID 기반 자동 이미지 스크래핑 로직
+# ★ [UPDATE] 새로운 이미지 경로 'images/[001_자산명]' 자동 매핑 로직
 # ==========================================
-def get_images_for_asset(item, base_dir='asset_images'):
-    """
-    1순위: asset_images/{ID}/ 폴더 내의 모든 이미지를 가져옵니다.
-    2순위: 폴더가 없으면 CSV의 '이미지경로' 컬럼 데이터를 파싱합니다.
-    """
+def get_images_for_asset(item, base_dir='images'):
     valid_img_paths = []
     
-    # 1. 자산 ID를 기준으로 폴더 확인 (ID 컬럼이 있다고 가정)
-    asset_id = str(item.get('ID', '')).strip()
-    if asset_id and str(asset_id) != 'nan':
-        folder_path = os.path.join(base_dir, asset_id)
+    # 데이터셋의 '이미지폴더명' 컬럼 값을 참조 (예: 001_홍릉숲)
+    folder_name = str(item.get('이미지폴더명', '')).strip()
+    if folder_name and str(folder_name) != 'nan':
+        folder_path = os.path.join(base_dir, folder_name)
         if os.path.exists(folder_path) and os.path.isdir(folder_path):
-            # 지원하는 이미지 확장자
             exts = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
             for f in os.listdir(folder_path):
                 if f.lower().endswith(exts):
                     valid_img_paths.append(os.path.join(folder_path, f))
-            # 파일 이름순 정렬 (예: 1.jpg, 2.jpg ...)
             valid_img_paths.sort()
             
-    # 2. 폴더에 이미지가 없다면 기존 CSV 방식(하위 호환) 적용
+    # 하위 호환
     if not valid_img_paths:
         csv_paths = str(item.get('이미지경로', ''))
         valid_img_paths = [p.strip() for p in csv_paths.split(',') if p.strip() and os.path.exists(p.strip())]
@@ -81,14 +73,13 @@ def change_img_index(state_key, step, total_images):
     st.session_state[state_key] = (st.session_state[state_key] + step) % total_images
 
 # ==========================================
-# 2. 파이썬 전용 상세 팝업 모달창
+# 2. 상세 팝업 모달창
 # ==========================================
 @st.dialog("자원 상세 정보", width="large")
 def show_detail_modal(item):
     col_img, col_text = st.columns([1, 1.2]) 
     
     with col_img:
-        # ★ 새로운 자동 스크래핑 함수 적용
         valid_img_paths = get_images_for_asset(item)
         
         if not valid_img_paths:
@@ -122,16 +113,17 @@ def show_detail_modal(item):
         st.markdown("<div style='font-size:0.85rem; font-weight:bold; color:#2ea043; margin-bottom:5px;'>📖 자원 설명</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='font-size:0.9rem; line-height:1.6; opacity:0.9;'>{str(item.get('내용', '등록된 설명이 없습니다.'))}</div>", unsafe_allow_html=True)
         
-        if pd.notna(item.get('대상지 현황')) and str(item.get('대상지 현황')).strip() != 'nan':
+        if pd.notna(item.get('지정목적')) and str(item.get('지정목적')).strip() != 'nan':
             st.write("")
-            st.markdown("<div style='font-size:0.85rem; font-weight:bold; color:#2ea043; margin-bottom:5px;'>📋 대상지 현황</div>", unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size:0.9rem; line-height:1.6; opacity:0.9;'>{str(item.get('대상지 현황'))}</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:0.85rem; font-weight:bold; color:#2ea043; margin-bottom:5px;'>📋 지정 목적</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:0.9rem; line-height:1.6; opacity:0.9;'>{str(item.get('지정목적'))}</div>", unsafe_allow_html=True)
             
         st.divider()
         
         st.markdown("<div style='font-size:0.85rem; font-weight:bold; color:#2ea043; margin-bottom:10px;'>📊 상세 속성 정보</div>", unsafe_allow_html=True)
         col_meta1, col_meta2 = st.columns(2)
-        exclude_cols = ['명칭', '내용', '대상지 현황', '현장의견', '이미지경로', '동영상경로', '주소', 'ID', 'Lat', 'Lon', '출처', '문헌자료', '관련링크']
+        # 이미지폴더명 등 화면에 불필요한 메타데이터는 제외
+        exclude_cols = ['명칭', '내용', '지정목적', '대상지 현황', '현장의견', '이미지경로', '이미지폴더명', '동영상경로', '주소', 'ID', 'Lat', 'Lon', '출처', '문헌자료', '관련링크', '지역']
         
         count = 0
         for col_name in item.index:
@@ -146,10 +138,30 @@ def show_detail_modal(item):
                 with col_meta2: st.markdown(meta_str, unsafe_allow_html=True)
             count += 1
 
+# ==========================================
+# ★ [UPDATE] 신규 데이터 파일 로드 및 호환성 리매핑
+# ==========================================
 def load_data(csv_path):
     if os.path.exists(csv_path):
-        try: return pd.read_csv(csv_path, encoding='utf-8-sig')
-        except UnicodeDecodeError: return pd.read_csv(csv_path, encoding='cp949')
+        try: 
+            df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        except UnicodeDecodeError: 
+            df = pd.read_csv(csv_path, encoding='cp949')
+            
+        # 기존 코드 호환을 위한 컬럼명 덮어쓰기
+        rename_dict = {
+            '자산명': '명칭',
+            '설명자료': '내용',
+            '위도': 'Lat',
+            '경도': 'Lon'
+        }
+        df = df.rename(columns=rename_dict)
+        
+        # 필터 및 그래프 생성을 위해 '지역' 데이터 파생 (주소의 첫 단어)
+        if '지역' not in df.columns and '주소' in df.columns:
+            df['지역'] = df['주소'].astype(str).str.split().str[0]
+            
+        return df
     else:
         st.error(f"'{csv_path}' 파일을 찾을 수 없습니다.")
         return pd.DataFrame()
@@ -177,7 +189,8 @@ def main():
     
     st.write("")
 
-    CSV_FILE = 'test_ForestAsset_27_modify.csv'
+    # 파일명을 새 정리된 CSV로 교체
+    CSV_FILE = '261023_산림청_국가산림문화자산_게시판_정리.csv'
     df = load_data(CSV_FILE)
 
     if df.empty: return
@@ -220,7 +233,7 @@ def main():
         "📊 분석 및 유사 자원", 
         "🗺️ 공간 탐색 (Map)", 
         "📚 출처 정보",
-        "🕸️ 지식 그래프 (Graph)" # 새로 추가된 탭
+        "🕸️ 지식 그래프 (Graph)"
     ])
 
     item_to_show = None
@@ -245,7 +258,6 @@ def main():
         translate_z = 700 
 
         for i, row in display_df.iterrows():
-            # ★ 동적 폴더 검색으로 첫 번째(대표) 이미지 할당
             folder_imgs = get_images_for_asset(row)
             first_img = folder_imgs[0] if folder_imgs else ""
             
@@ -375,7 +387,6 @@ def main():
             for i, (idx, row) in enumerate(visible_items.iterrows()):
                 with cols[i]:
                     with st.container():
-                        # ★ 동적 폴더 검색 로직 적용
                         folder_imgs = get_images_for_asset(row)
                         first_img = folder_imgs[0] if folder_imgs else ""
                         
@@ -459,14 +470,14 @@ def main():
     if item_to_show is not None:
         show_detail_modal(item_to_show)
 
-    # [탭 5] 지식 그래프 시각화 (자동 라벨 인식 적용)
+    # [탭 5] 지식 그래프 시각화 (신규 CIDOC-CRM TTL 완벽 연동)
     with tab5:
         st.write("")
         st.subheader("🕸️ 산림문화자원 지식 그래프 (Knowledge Graph)")
-        st.write("자원, 지역, 유형 간의 의미론적 관계를 탐색합니다. (마우스 휠로 확대/축소 및 드래그 가능)")
+        st.write("자원, 관리주체, 키워드, 유형 간의 의미론적 관계를 탐색합니다. (마우스 휠로 확대/축소 및 드래그 가능)")
         
-        # ttl_file_path = "forest_culture_graphdb_ready.ttl" <- 초기버전
-        ttl_file_path = "forest_culture_full.ttl"
+        # ★ 새로운 TTL 파일명으로 변경
+        ttl_file_path = "forest_culture_new_updated.ttl"
         g = rdflib.Graph()
         
         try:
@@ -474,65 +485,58 @@ def main():
                 g.parse(ttl_file_path, format="turtle")
             else:
                 st.info(f"'{ttl_file_path}' 파일이 없어 임시 테스트 그래프를 생성합니다.")
-                
-                # 테스트 데이터 (label, 명칭 등의 속성 사용)
                 g.parse(data="""
                     @prefix ex: <http://example.org/> .
                     @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-                    
-                    ex:Asset_1 rdfs:label "테스트 자산 1호" ;
-                               ex:유형 ex:천연기념물 ;
-                               ex:위치 ex:서울특별시_종로구 .
-                               
-                    ex:Asset_2 ex:명칭 "담양 메타세쿼이아 가로수길" ;
-                               ex:유형 ex:가로수 ;
-                               ex:위치 ex:전라남도_담양군 .
-                               
-                    ex:전라남도_담양군 rdfs:label "전라남도 담양군" ;
-                                       ex:상위행정구역 ex:전라남도 .
+                    ex:Asset_1 rdfs:label "테스트 자산" ; ex:유형 ex:천연기념물 .
                 """, format="turtle")
 
-            # 1. PyVis 네트워크 그래프 초기화
-            net = Network(height="600px", width="100%", bgcolor="transparent", font_color="var(--text-color)")
-            net.force_atlas_2based(gravity=-50, central_gravity=0.01, spring_length=100, spring_strength=0.08)
+            net = Network(height="650px", width="100%", bgcolor="transparent", font_color="var(--text-color)")
+            net.force_atlas_2based(gravity=-60, central_gravity=0.01, spring_length=120, spring_strength=0.05)
 
-            # ==========================================
-            # ★ 사용자 아이디어 반영: Asset 다음의 label 자동 탐색 로직
-            # ==========================================
+            import urllib.parse
             label_dict = {}
             
-            # 그래프의 모든 데이터를 순회하며 라벨 역할을 하는 서술어를 찾습니다.
+            # 1. 라벨 자동 추출 (rdfs:label 등)
             for s, p, o in g:
                 p_str = str(p).lower()
-                # 서술어에 label, name, 명칭, 한글명 등이 포함되어 있으면 라벨 사전에 등록
                 if "label" in p_str or "name" in p_str or "명칭" in p_str or "한글명" in p_str:
                     label_dict[str(s)] = str(o)
 
-            # 화면에 표시할 텍스트를 결정하는 함수
+            # 2. CIDOC-CRM Predicate 한글 매핑 딕셔너리
+            pred_mapping = {
+                "P105_right_held_by": "관리 및 소유",
+                "P130_shows_features_of": "핵심 키워드",
+                "P2_has_type": "자산 유형",
+                "P53_has_former_or_current_location": "위치(Grid)",
+                "type": "분류"
+            }
+
             def get_display_label(uri):
                 uri_str = str(uri)
-                # 1순위: 사전에 등록된 라벨(한글명)이 있으면 즉시 반환
                 if uri_str in label_dict:
                     return label_dict[uri_str]
                 
-                # 2순위: 라벨이 따로 없으면 URI의 맨 끝 단어를 추출하여 사용
-                if "#" in uri_str: return uri_str.split("#")[-1]
-                if "/" in uri_str: return uri_str.split("/")[-1]
-                return uri_str
-            # ==========================================
+                # URI 끝 단어 추출 및 한글 URL 디코딩
+                extracted = uri_str.split("#")[-1] if "#" in uri_str else uri_str.split("/")[-1]
+                extracted = urllib.parse.unquote(extracted)
+                
+                if extracted in pred_mapping:
+                    return pred_mapping[extracted]
+                
+                return extracted
 
-            MAX_TRIPLES = 1000 
+            MAX_TRIPLES = 2000 # 새로운 파일의 방대한 관계망을 담기 위해 한도 상향
             
-            # 2. 노드 및 엣지 생성
             for i, (subj, pred, obj) in enumerate(g):
                 if i >= MAX_TRIPLES: break
                 
                 p_str = str(pred).lower()
-                # 라벨(이름)을 지정하는 엣지는 화면에 선으로 그리지 않고 숨김
-                if "label" in p_str or "name" in p_str or "명칭" in p_str or "한글명" in p_str:
+                
+                # ★ 화면을 지저분하게 만드는 속성(긴 설명글, 라벨 속성 자체, 단순 식별자)은 엣지 렌더링에서 제외
+                if "label" in p_str or "name" in p_str or "note" in p_str or "is_identified_by" in p_str:
                     continue
                 
-                # 고유 ID와 화면 표시 라벨 분리
                 s_id = str(subj)
                 o_id = str(obj)
                 
@@ -542,16 +546,20 @@ def main():
                 is_literal = isinstance(obj, rdflib.Literal)
                 o_label = str(obj) if is_literal else get_display_label(obj)
 
-                # 노드 렌더링 (ID는 유지하되, 화면에는 찾은 라벨 출력)
-                net.add_node(s_id, label=s_label, title=s_id, color="#2ea043", size=20)
-                
-                o_color = "#e3a008" if is_literal else "#1f6feb"
-                o_size = 15 if is_literal else 20
-                net.add_node(o_id, label=o_label, title=o_id, color=o_color, size=o_size)
-                
-                net.add_edge(s_id, o_id, title=p_label, label=p_label, color="gray")
+                # 목적어 텍스트(Literal)일 경우에도 디코딩 처리
+                s_label = urllib.parse.unquote(s_label)
+                o_label = urllib.parse.unquote(o_label)
 
-            # 3. HTML 렌더링
+                # 메인 자산 노드 (초록색, 크기 25)
+                net.add_node(s_id, label=s_label, title=s_label, color="#2ea043", size=25)
+                
+                # 연결된 속성 노드 (파란색 허브, 크기 15)
+                o_color = "#e3a008" if is_literal else "#1f6feb"
+                o_size = 12 if is_literal else 18
+                net.add_node(o_id, label=o_label, title=o_label, color=o_color, size=o_size)
+                
+                net.add_edge(s_id, o_id, title=p_label, label=p_label, color="rgba(128,128,128,0.5)")
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
                 try:
                     net.save_graph(tmp_file.name)
@@ -562,7 +570,7 @@ def main():
             with open(html_file_path, "r", encoding="utf-8") as f:
                 graph_html = f.read()
             
-            components.html(graph_html, height=650)
+            components.html(graph_html, height=700)
             
         except Exception as e:
             st.error(f"지식 그래프 생성 중 오류가 발생했습니다: {e}")
