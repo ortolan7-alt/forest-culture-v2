@@ -180,8 +180,8 @@ def main():
     # 1. 재생할 유튜브 영상 목록 정의 (id에는 유튜브 주소 v= 뒤의 값을 넣습니다)
     video_list = [
         {"id": "kx3zWy-C9a4", "title": "담양 메타세쿼이아 가로수길", "caption": "국가산림문화자산 지정번호 : 2015-0001"},
-        {"id": "P3b2oWjX_q4", "title": "영양 수비면 본신리 금강소나무숲", "caption": "국가산림문화자산"}, # 예시 ID 1
-        {"id": "tM3r_y2i5uU", "title": "장성 축령산 편백숲", "caption": "국가산림문화자산"}         # 예시 ID 2
+        {"id": "DAtXY7fCCOI", "title": "국가산림문화자산으로 지정된 도심 한복판 소나무 숲길", "caption": "국가산림문화자산"}, # 예시 ID 1
+        {"id": "L-Sqvu8qE-A", "title": "뜬봉샘, 완전정복! (With.산속에백만송희)", "caption": "국가산림문화자산"}         # 예시 ID 2
     ]
 
     # 2. 현재 선택된 영상 인덱스를 세션 스테이트에 저장
@@ -193,9 +193,10 @@ def main():
     # 3. 메인 비디오 플레이어 출력
     col_empty1, col_video, col_empty2 = st.columns([1, 6, 1])
     with col_video:
+        # mute=0 (음소거 해제), controls=1 (재생/볼륨 조절 바 표시) 적용
         video_html = f"""
         <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; border: 1px solid rgba(128,128,128,0.2); box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
-            <iframe src="https://www.youtube.com/embed/{selected_video['id']}?autoplay=1&mute=1&loop=1&playlist={selected_video['id']}&controls=0&showinfo=0&rel=0"
+            <iframe src="https://www.youtube.com/embed/{selected_video['id']}?autoplay=1&mute=0&loop=1&playlist={selected_video['id']}&controls=1&rel=0"
                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
             </iframe>
