@@ -247,7 +247,7 @@ def main():
 
     with st.sidebar:
         st.markdown("### 🔍 산림문화자원 검색 필터")
-        st.write("▼ 국가산림문화자산 산림청 자료 기반")
+        st.write("▼ 국가산림문화자산 산림청 게시판")
         st.divider()
         
         col_search, col_reset = st.columns([4, 1])
